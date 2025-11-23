@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-cards_db}
+    command: postgres -c wal_level=logical -c max_replication_slots=4 -c max_wal_senders=4
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka_broker
+    depends_on:
+      - zookeeper
+    ports:
+      # Exposes the internal Kafka port to the host machine
+      - "9092:9092"
+      # Port for external 
+      # Ensure KAFKA_ADVERTISED_LISTENERS uses the correct hostname/IP
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Listeners: 'INTERNAL' for communication within docker-compose, 'EXTERNAL' for host access
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0 # Speeds up consumer group initialization for dev
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    # volumes:
+      # - kafka_data:/var/lib/kafka/data
+  
+  issuer_service:
+    build:
+      context: ./../issuer_service
+      dockerfile: Dockerfile 
+    image: issuer_service_docker
+    container_name: issuer_service_container
+    restart: always
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "${ISSUER_SERVICE_PORT:-3000}:${ISSUER_SERVICE_PORT:-3000}"
+    env_file:
+      - ./../issuer_service/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      KAFKA_BROKER: kafka:9092
+      KAFKA_CLIENT_ID: issuer_service_kafka_client_id
+      KAFKA_CONSUMER_GROUP_ID: issuer_consumer_group_id
+  
+  card_processor_service:
+    build:
+      context: ./../card_processor_service
+      dockerfile: Dockerfile 
+    image: card_processor_service_docker
+    container_name: card_processor_service_container
+    restart: always
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "${CARD_PROCESSOR_SERVICE_PORT:-3001}:${CARD_PROCESSOR_SERVICE_PORT:-3001}"
+    env_file:
+      - ./../card_processor_service/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      REDIS_URL: redis://redis:${REDIS_PORT:-6379}
+      KAFKA_BROKER: kafka:9092
+      KAFKA_CLIENT_ID: card_processor_service_kafka_client_id
+      KAFKA_CONSUMER_GROUP_ID: card_processor_service_consumer_group_id
+
+volumes:
+  postgres_data:
+  redis_data:
+  # kafka_data:
