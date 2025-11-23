@@ -7,7 +7,6 @@ class EventMetadataDto {
   timestamp: string;
 }
 
-// Extendemos o componemos el DTO original
 export class CardRequestedEventDto extends IssueCardDto {
   @IsUUID()
   requestId: string;

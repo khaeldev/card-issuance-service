@@ -10,8 +10,6 @@ export class ProcessorController {
 
   @EventPattern(TOPIC_CARD_REQUESTED)
   async handleCardRequest(@Payload() message: CardRequestedEventDto) {
-    // KafkaJS entrega el mensaje con metadata, el payload útil suele estar en message o message.value dependiendo de la config de serialización.
-    // NestJS simplifica esto, asumiendo que el message es el value JSON parseado.
     await this.service.processIssuance(message);
   }
 }

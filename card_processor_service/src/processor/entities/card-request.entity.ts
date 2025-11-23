@@ -21,7 +21,6 @@ export class CardRequest {
   @Column()
   documentType: string;
 
-  // REGLA DE NEGOCIO: UNIQUE Constraint para evitar duplicados por cliente
   @Column({ unique: true })
   @Index()
   documentNumber: string;
@@ -33,10 +32,10 @@ export class CardRequest {
   status: string;
 
   @Column({ nullable: true })
-  cardNumber: string; // En un caso real, esto debería estar tokenizado/hasheado
+  cardNumber: string;
 
   @Column({ nullable: true })
-  cvv: string; // Solo para demo. NO guardar CVV en producción real.
+  cvv: string;
 
   @Column({ nullable: true })
   expirationDate: string;

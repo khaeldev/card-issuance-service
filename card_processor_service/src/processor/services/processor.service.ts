@@ -9,11 +9,10 @@ import {
   TOPIC_CARD_DLQ,
 } from './../../shared/constants';
 import { CardRequestedEventDto } from '../dto/card-event.dto';
-
 @Injectable()
 export class ProcessorService {
   private readonly logger = new Logger(ProcessorService.name);
-  // Tiempos de espera requeridos: 1s, 2s, 4s
+
   private readonly RETRY_DELAYS = [1000, 2000, 4000];
 
   constructor(
@@ -28,10 +27,8 @@ export class ProcessorService {
     let attempts = 0;
     let success = false;
 
-    // Loop de reintento manual
     while (attempts <= 3) {
       try {
-        // Simular carga externa (200-500ms) y posible error
         await this.simulateExternalProvider(product.simulateError, attempts);
 
         const cardData = this.generateCardData();
@@ -83,10 +80,8 @@ export class ProcessorService {
       `Solicitud ${requestId} enviada a DLQ tras ${attempts} intentos.`,
     );
 
-    // Actualizar DB a FAILED
     await this.cardRepo.update(requestId, { status: CardStatus.FAILED });
 
-    // Publicar en DLQ
     this.kafkaClient.emit(TOPIC_CARD_DLQ, {
       key: payload.customer.documentNumber,
       value: {

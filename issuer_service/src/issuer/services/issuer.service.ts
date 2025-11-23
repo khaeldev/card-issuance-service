@@ -12,7 +12,6 @@ import { CardRequest, CardStatus } from './../entities/card-request.entity';
 import { IssueCardDto } from './../dto/issuer-card.dto';
 import { KAFKA_SERVICE, TOPIC_CARD_REQUESTED } from './../../shared/constants';
 import { v4 as uuidv4 } from 'uuid';
-
 @Injectable()
 export class IssuerService {
   private readonly logger = new Logger(IssuerService.name);
@@ -25,7 +24,6 @@ export class IssuerService {
   async createRequest(dto: IssueCardDto) {
     const requestId = uuidv4() as string;
 
-    // 1. Persistir en DB con estado PENDING
     const newRequest = this.cardRepo.create({
       id: requestId,
       documentType: dto.customer.documentType,
@@ -49,14 +47,12 @@ export class IssuerService {
       throw new InternalServerErrorException('Error guardando solicitud');
     }
 
-    // 2. Publicar evento en Kafka
     const payload = {
       requestId,
       ...dto,
       metadata: { timestamp: new Date().toISOString() },
     };
 
-    // Usamos el documentNumber como Key para mantener el orden y particionado
     this.kafkaClient.emit(TOPIC_CARD_REQUESTED, {
       key: dto.customer.documentNumber,
       value: payload,
