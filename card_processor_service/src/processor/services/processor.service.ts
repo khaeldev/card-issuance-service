@@ -64,7 +64,7 @@ export class ProcessorService {
         // Esperar antes del siguiente reintento (Backoff: 1s, 2s, 4s)
         const delay = this.RETRY_DELAYS[attempts - 1];
         this.logger.warn(`Esperando ${delay}ms antes de reintentar...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await this.sleep(delay);
       }
     }
 
@@ -130,5 +130,9 @@ export class ProcessorService {
       cvv: Math.floor(Math.random() * (999 - 100 + 1) + 100).toString(),
       expiration: '12/29',
     };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

@@ -10,6 +10,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors();
+
   const configService = app.get(ConfigService);
   const appPort = configService.get<number>('app.port')!;
   const kafkaBroker = configService.get<string>('app.kafka.broker')!;

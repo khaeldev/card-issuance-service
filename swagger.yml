@@ -1,0 +1,177 @@
+openapi: 3.0.0
+info:
+  title: Issuer API - Tarjetas
+  description: API de entrada para el proceso de emisión de tarjetas financieras basado en eventos (Challenge Técnico).
+  version: '1.0.0'
+  contact:
+    name: Kenny Luque
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desarrollo (Local)
+paths:
+  /cards/issuer:
+    post:
+      tags:
+        - Emisión de Tarjetas
+      summary: Solicitar emisión de nueva tarjeta
+      description: >-
+        Registra una solicitud de tarjeta para un nuevo cliente. 
+        
+        Valida reglas de negocio síncronas (unicidad de documento) y publica un evento asíncrono `io.card.requested.v1` para su procesamiento en background.
+      operationId: issueCard
+      requestBody:
+        description: Datos del cliente y del producto solicitado.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueCardRequest'
+      responses:
+        '201':
+          description: Solicitud creada exitosamente (Estado Pendiente).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueCardResponse'
+              example:
+                requestId: "550e8400-e29b-41d4-a716-446655440000"
+                status: "PENDING"
+        '400':
+          description: Error de Validación (Datos incorrectos o faltantes).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 400
+                message:
+                  - "customer.email must be an email"
+                  - "customer.age must not be less than 18"
+                  - "customer.documentNumber must be longer than or equal to 8 characters"
+                error: "Bad Request"
+        '409':
+          description: Conflicto de Negocio (Cliente duplicado).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 409
+                message: "El cliente ya tiene una solicitud o tarjeta en proceso."
+                error: "Conflict"
+        '500':
+          description: Error Interno del Servidor (Fallo en DB o Broker).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 500
+                message: "Error guardando solicitud"
+                error: "Internal Server Error"
+
+components:
+  schemas:
+    # --- Request Payload ---
+    IssueCardRequest:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        product:
+          $ref: '#/components/schemas/Product'
+      required:
+        - customer
+        - product
+
+    Customer:
+      type: object
+      description: Información personal del solicitante.
+      properties:
+        documentType:
+          type: string
+          enum: [DNI, CE, PASSPORT]
+          example: "DNI"
+          description: Tipo de documento legal.
+        documentNumber:
+          type: string
+          minLength: 8
+          maxLength: 12
+          example: "11654321"
+          description: Número de documento único (Key de unicidad).
+        fullName:
+          type: string
+          example: "Jose Pérez"
+          description: Nombre completo.
+        age:
+          type: integer
+          minimum: 18
+          example: 25
+          description: Edad del solicitante (Validación > 18).
+        email:
+          type: string
+          format: email
+          example: "example@gmail.com"
+          description: Email de contacto.
+      required:
+        - documentType
+        - documentNumber
+        - fullName
+        - age
+        - email
+
+    Product:
+      type: object
+      description: Configuración del producto financiero.
+      properties:
+        type:
+          type: string
+          example: "VISA"
+          description: Franquicia de la tarjeta.
+        currency:
+          type: string
+          example: "PEN"
+          description: Moneda (ISO 4217).
+        simulateError:
+          type: boolean
+          default: false
+          example: false
+          description: Flag técnico para forzar errores en el procesador (Testing).
+      required:
+        - type
+        - currency
+        - simulateError
+
+    # --- Responses ---
+    IssueCardResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+          description: ID único de trazabilidad generado.
+        status:
+          type: string
+          example: "PENDING"
+          description: Estado inicial de la solicitud.
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          oneOf:
+            - type: string
+              example: "Mensaje de error específico"
+            - type: array
+              items:
+                type: string
+              example: ["Error 1", "Error 2"]
+          description: Detalle del error (puede ser un string o array de validaciones).
+        error:
+          type: string
+          example: "Bad Request"
+          description: Tipo de error HTTP.
