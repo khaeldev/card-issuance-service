@@ -70,3 +70,11 @@ docker ps
 ## 8. Ir a swagger y probar directamente
 
 swagger.yml
+
+## 9.- Scripts pra crear topics manual (No es necesario ya que se configuro para que se creen de forma automatica)
+
+afka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic io.card.requested.v1
+
+kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic io.cards.issued.v1
+
+kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic io.card.requested.v1.dlq
