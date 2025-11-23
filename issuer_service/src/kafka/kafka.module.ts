@@ -20,6 +20,10 @@ import { KAFKA_SERVICE } from '../shared/constants';
               brokers: [
                 configService.get<string>('app.kafka.broker') || 'kafka:9092',
               ],
+              retry: {
+                initialRetryTime: 300,
+                retries: 10,
+              },
             },
             consumer: {
               allowAutoTopicCreation: true,
